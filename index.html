@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>源网协同鲁棒规划 | 在线演示系统</title>
+    
+    <!-- 依赖库 (使用稳定的 CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #f5f5f7;
+            --card-bg: #ffffff;
+            --primary-text: #1d1d1f;
+            --secondary-text: #86868b;
+            --mp-color: #0071e3;
+            --sp-color: #ff375f;
+            --radius: 18px;
+        }
+
+        * { box-sizing: border-box; outline: none; }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--primary-text);
+            height: 100vh;
+            display: flex; flex-direction: column;
+            overflow: hidden; 
+        }
+
+        /* --- 顶部导航 --- */
+        header {
+            flex: 0 0 60px;
+            padding: 0 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid #e5e5ea;
+            z-index: 50;
+        }
+        .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .logo i { color: var(--mp-color); }
+        
+        .kpi-group { display: flex; gap: 15px; font-size: 0.85rem; color: var(--secondary-text); }
+        .kpi-val { color: var(--primary-text); font-weight: 600; font-family: "SF Mono", monospace; margin-left: 4px; }
+
+        /* --- 重置按钮 (新功能) --- */
+        .btn-reset {
+            padding: 6px 12px;
+            background: #f2f2f7;
+            color: var(--secondary-text);
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .btn-reset:hover { background: #e5e5ea; color: #000; }
+        .btn-reset:active { transform: scale(0.95); }
+
+        /* --- 主容器 --- */
+        .main-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        /* --- 上半区 (自适应高度) --- */
+        .stage-grid {
+            display: grid;
+            grid-template-columns: 1fr 450px 1fr; /* 保持中间宽度固定 */
+            gap: 20px;
+            min-height: 450px;
+        }
+
+        /* 通用卡片 */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+            border: 1px solid rgba(0,0,0,0.02);
+            display: flex; flex-direction: column;
+            position: relative; z-index: 1;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.08); }
+        
+        .card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .tag { font-size: 0.7rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; }
+        .tag.mp { background: #e0f2ff; color: var(--mp-color); }
+        .tag.sp { background: #ffe0e6; color: var(--sp-color); }
+        
+        .card-body { padding: 20px; flex: 1; font-size: 0.9rem; line-height: 1.6; color: #444; display: flex; flex-direction: column; }
+        .math-box { background: #f9f9fa; padding: 10px; border-radius: 8px; margin: 12px 0; font-size: 0.85rem; border: 1px solid #eee; overflow-x: auto; }
+
+        /* 详情按钮 */
+        .btn-detail {
+            margin-top: auto; width: 100%; padding: 10px;
+            background: #f2f2f7; color: var(--primary-text);
+            border: none; border-radius: 8px;
+            font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-detail:hover { background: #e5e5ea; }
+        .mp .btn-detail { color: var(--mp-color); background: #e0f2ff; }
+        .mp .btn-detail:hover { background: #d0e9ff; }
+        .sp .btn-detail { color: var(--sp-color); background: #ffe0e6; }
+        .sp .btn-detail:hover { background: #ffd0d9; }
+
+        /* --- 中控区 --- */
+        .interaction-area {
+            display: flex; flex-direction: column; justify-content: center; gap: 24px;
+            position: relative; z-index: 100;
+        }
+
+        .pipe-row {
+            position: relative; height: 70px;
+            background: #fff; border-radius: 35px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            display: flex; align-items: center; padding: 0 10px;
+            z-index: 101;
+        }
+        .pipe-label {
+            position: absolute; top: -22px; left: 20px;
+            font-size: 0.7rem; font-weight: 700; color: var(--secondary-text); text-transform: uppercase;
+        }
+        .track { flex: 1; height: 4px; background: #f0f0f0; border-radius: 2px; margin: 0 15px; position: relative; }
+
+        /* 球体 */
+        .ball {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            position: absolute; top: 50%;
+            transform: translate(-50%, -50%) scale(0); 
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 200; font-size: 1.1rem; transition: none; 
+        }
+        .ball.mp { border: 3px solid var(--mp-color); color: var(--mp-color); }
+        .ball.sp { border: 3px solid var(--sp-color); color: var(--sp-color); }
+        .ball:hover { transform: translate(-50%, -50%) scale(1.15) !important; }
+
+        /* 主按钮 */
+        .btn-main {
+            width: 100%; padding: 16px;
+            background: #1d1d1f; color: #fff;
+            border: none; border-radius: 12px;
+            font-size: 1rem; font-weight: 600;
+            cursor: pointer; transition: 0.2s;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            position: relative; z-index: 101;
+        }
+        .btn-main:hover:not(:disabled) { transform: scale(1.02); background: #000; }
+        .btn-main:disabled { background: #e5e5ea; color: #999; cursor: not-allowed; box-shadow: none; }
+
+        /* --- 下半区 (仪表盘) --- */
+        .dashboard-grid {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px; height: 300px; min-height: 300px;
+        }
+        .dash-card {
+            background: #fff; border-radius: var(--radius); padding: 15px;
+            display: flex; flex-direction: column;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.02);
+        }
+        .dash-title { font-size: 0.8rem; font-weight: 700; color: var(--secondary-text); margin-bottom: 10px; }
+        .chart-box { position: relative; flex: 1; width: 100%; min-height: 0; }
+        .log-content {
+            flex: 1; overflow-y: auto; font-family: "SF Mono", monospace; font-size: 0.75rem;
+            background: #f9f9fa; border-radius: 8px; padding: 10px;
+        }
+        .log-line { margin-bottom: 5px; padding-left: 8px; border-left: 3px solid #ddd; }
+
+        /* --- 全局弹窗 (Global Popover) --- */
+        #global-popover {
+            position: fixed; top: 0; left: 0; width: 260px;
+            background: rgba(255,255,255,0.98); backdrop-filter: blur(20px);
+            border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            padding: 15px; opacity: 0; pointer-events: none;
+            transition: opacity 0.2s; z-index: 99999;
+            border: 1px solid rgba(0,0,0,0.08); transform: translateX(-50%);
+        }
+        #global-popover.active { opacity: 1; pointer-events: auto; }
+        #global-popover::before {
+            content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+            border-width: 0 6px 6px 6px; border-style: solid;
+            border-color: transparent transparent rgba(255,255,255,0.98) transparent;
+        }
+        .pop-row { display: flex; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px dashed #eee; padding-bottom: 4px; font-size: 0.8rem; }
+        .pop-val { font-weight: 600; color: #000; }
+
+        /* --- 详情模态框 --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
+            z-index: 20000; display: none; justify-content: center; align-items: center;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; display: flex; }
+        .modal-content {
+            width: 800px; max-height: 85vh; background: #fff; border-radius: 24px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.15); padding: 40px;
+            overflow-y: auto; position: relative; border: 1px solid #eee;
+        }
+        .close-modal {
+            position: absolute; top: 20px; right: 20px; width: 36px; height: 36px;
+            background: #f5f5f7; border-radius: 50%; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; color: #666; font-size: 1.2rem;
+        }
+        .close-modal:hover { background: #e5e5ea; color: #000; }
+
+        /* --- 响应式适配 --- */
+        @media (max-width: 1200px) {
+            .stage-grid { grid-template-columns: 1fr 350px 1fr; gap: 15px; }
+            .dashboard-grid { grid-template-columns: 1fr 1fr; height: auto; }
+            .dash-card:last-child { grid-column: 1 / -1; height: 200px; }
+        }
+        @media (max-width: 900px) {
+            .stage-grid { grid-template-columns: 1fr; height: auto; }
+            .interaction-area { order: -1; margin: 20px 0; }
+            .dashboard-grid { grid-template-columns: 1fr; }
+            header { padding: 0 15px; }
+            .kpi-group { display: none; } /* 小屏隐藏 KPI */
+        }
+
+        /* 详情页样式 */
+        h2.modal-title { margin: 0 0 10px 0; font-size: 1.8rem; }
+        p.modal-subtitle { color: #666; margin: 0 0 30px 0; font-size: 1rem; }
+        .section-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; border-bottom: 2px solid #f5f5f7; padding-bottom: 8px; }
+        .def-item { display: grid; grid-template-columns: 100px 1fr; gap: 15px; margin-bottom: 10px; }
+        .def-term { font-weight: bold; text-align: right; color: #333; }
+        .def-desc { font-size: 0.9rem; color: #555; }
+        .math-highlight { background: #f2f2f7; padding: 15px; border-radius: 10px; border-left: 4px solid #ccc; overflow-x: auto; }
+
+    </style>
+</head>
+<body>
+
+<!-- 全局悬浮弹窗 -->
+<div id="global-popover">
+    <h4 id="gp-title" style="color:var(--mp-color); margin:0 0 10px 0;">标题</h4>
+    <div id="gp-content">内容...</div>
+    <div style="margin-top:8px; text-align:center; color:#999; font-size:0.7rem;">(点击确认)</div>
+</div>
+
+<!-- 详情模态框 -->
+<div class="modal-overlay" id="detail-modal" onclick="if(event.target===this) closeModal()">
+    <div class="modal-content" id="modal-body"></div>
+</div>
+
+<header>
+    <div class="logo">
+        <i class="fas fa-network-wired"></i>
+        <span>Source-Grid Robust Co-Planning</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:20px;">
+        <div class="kpi-group">
+            <div>ITER: <span class="kpi-val" id="kpi-iter">0</span></div>
+            <div>LB: <span class="kpi-val" id="kpi-lb" style="color:var(--mp-color)">-</span></div>
+            <div>UB: <span class="kpi-val" id="kpi-ub" style="color:var(--sp-color)">-</span></div>
+            <div>GAP: <span class="kpi-val" id="kpi-gap">-</span></div>
+        </div>
+        <button class="btn-reset" onclick="resetDemo()">
+            <i class="fas fa-redo-alt"></i> 重置演示
+        </button>
+    </div>
+</header>
+
+<div class="main-scroll-area">
+    
+    <!-- 上半区 -->
+    <div class="stage-grid">
+        <!-- MP -->
+        <div class="card mp">
+            <div class="card-header">
+                <span>Master Problem</span>
+                <span class="tag mp">MISOCP</span>
+            </div>
+            <div class="card-body">
+                <p><strong>决策目标：</strong><br>最小化 (设备投资 + 预估风险 $\eta$)</p>
+                <div class="math-box">$$ \min \sum C_{inv} \cdot x + \eta $$</div>
+                <p style="color:#666; font-size:0.85rem;">统筹全局，平衡投资与风险。</p>
+                <button class="btn-detail" onclick="openDetail('MP')">
+                    <i class="fas fa-book-open"></i> 查看完整建模
+                </button>
+                <div style="margin-top:10px; color:var(--mp-color); font-weight:600; font-size:0.85rem;" id="status-mp">状态: 就绪</div>
+            </div>
+        </div>
+
+        <!-- 中控 -->
+        <div class="interaction-area">
+            <div class="pipe-row">
+                <div class="pipe-label" style="color:var(--mp-color)">DOWN: 投资方案</div>
+                <div class="track">
+                    <div class="ball mp" id="ball-down" 
+                         onmouseenter="showGlobalPopover(this, 'down')" 
+                         onmouseleave="hideGlobalPopover()"
+                         onclick="resumeStep('down')">
+                        <i class="fas fa-file-contract"></i>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-main" id="btn-ctrl" onclick="runNextStep()">
+                <i class="fas fa-play"></i> 开始第一轮迭代
+            </button>
+
+            <div class="pipe-row">
+                <div class="pipe-label" style="color:var(--sp-color); right:20px; left:auto;">UP: 风险反馈</div>
+                <div class="track">
+                    <div class="ball sp" id="ball-up" 
+                         onmouseenter="showGlobalPopover(this, 'up')" 
+                         onmouseleave="hideGlobalPopover()"
+                         onclick="resumeStep('up')">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SP -->
+        <div class="card sp">
+            <div class="card-header">
+                <span>Sub-Problem</span>
+                <span class="tag sp">Exact SOCP</span>
+            </div>
+            <div class="card-body">
+                <p><strong>校验目标：</strong><br>寻找最恶劣场景，计算真实代价。</p>
+                <div class="math-box">$$ \max_u \min_y (M \cdot \text{Vio} + \text{Loss}) $$</div>
+                <p style="color:#666; font-size:0.85rem;">双重锚定机制，确保物理真实。</p>
+                <button class="btn-detail" onclick="openDetail('SP')">
+                    <i class="fas fa-book-open"></i> 查看物理方程
+                </button>
+                <div style="margin-top:10px; color:var(--sp-color); font-weight:600; font-size:0.85rem;" id="status-sp">状态: 等待</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下半区 -->
+    <div class="dashboard-grid">
+        <div class="dash-card">
+            <div class="dash-title">收敛曲线 (Cost)</div>
+            <div class="chart-box">
+                <canvas id="chart-cost"></canvas>
+            </div>
+        </div>
+        <div class="dash-card">
+            <div class="dash-title">电压分布 (Worst Case)</div>
+            <div class="chart-box">
+                <canvas id="chart-volt"></canvas>
+            </div>
+        </div>
+        <div class="dash-card">
+            <div class="dash-title">系统日志</div>
+            <div class="log-content" id="logger">
+                <div class="log-line">[SYS] Framework Initialized.</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- 全局弹窗逻辑 (向下弹出) ---
+    let currentPopoverTarget = null;
+    const globalPopover = document.getElementById('global-popover');
+    const gpTitle = document.getElementById('gp-title');
+    const gpContent = document.getElementById('gp-content');
+    let currentData = null;
+
+    function showGlobalPopover(target, type) {
+        const style = window.getComputedStyle(target);
+        if (style.transform.includes('matrix(0,')) return; 
+
+        currentPopoverTarget = target;
+        
+        if (type === 'down') {
+            gpTitle.style.color = 'var(--mp-color)';
+            gpTitle.innerText = '投资方案详情';
+            gpContent.innerHTML = currentData ? `
+                <div class="pop-row"><span>HDT</span><span style="font-weight:700">${currentData.mp_out.hdt}</span></div>
+                <div class="pop-row"><span>PV</span><span style="font-weight:700">${currentData.mp_out.pv}</span></div>
+                <div class="pop-row"><span>Risk</span><span>${currentData.mp_out.risk}</span></div>
+            ` : '等待生成...';
+        } else {
+            gpTitle.style.color = 'var(--sp-color)';
+            gpTitle.innerText = '风险评估报告';
+            gpContent.innerHTML = currentData ? `
+                <div class="pop-row"><span>Scene</span><span>${currentData.sp_out.weather}</span></div>
+                <div class="pop-row"><span>Vio</span><span style="color:${currIter<3?'red':'green'}">${currentData.sp_out.vio}</span></div>
+                <div class="pop-row"><span>Cut</span><span>${currentData.sp_out.pen}</span></div>
+            ` : '等待生成...';
+        }
+
+        // 定位到球体正下方
+        const rect = target.getBoundingClientRect();
+        const top = rect.bottom + 15; 
+        const left = rect.left + rect.width / 2;
+
+        globalPopover.style.top = top + 'px';
+        globalPopover.style.left = left + 'px';
+        globalPopover.classList.add('active');
+    }
+
+    function hideGlobalPopover() {
+        globalPopover.classList.remove('active');
+    }
+
+    // --- 数据剧本 ---
+    const steps = [
+        {
+            mp_out: { hdt: "无", pv: "Max (全铺满)", risk: 0 },
+            sp_out: { weather: "光伏100% 负荷20%", vio: "1.09 pu (严重)", pen: 8000 },
+            lb: 2000, ub: 10000,
+            volt: Array.from({length:69}, (_,i) => 1.0 + Math.random()*0.02 + (i>30?0.09:0))
+        },
+        {
+            mp_out: { hdt: "节点 53 (300kVA)", pv: "局部削减", risk: 8000 },
+            sp_out: { weather: "光伏80% 负荷15%", vio: "1.06 pu (轻微)", pen: 1200 },
+            lb: 5000, ub: 8500,
+            volt: Array.from({length:69}, (_,i) => 1.0 + Math.random()*0.015 + (i>30?0.06:0))
+        },
+        {
+            mp_out: { hdt: "节点 53 & 29", pv: "最优配置", risk: 1200 },
+            sp_out: { weather: "任意场景", vio: "安全 (<1.05)", pen: 50 },
+            lb: 7500, ub: 7550,
+            volt: Array.from({length:69}, (_,i) => 1.0 + Math.random()*0.01 + (i>30?0.04:0))
+        }
+    ];
+
+    // --- 图表初始化 ---
+    const commonOpts = { 
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position:'bottom', labels:{boxWidth:10, padding:10} } }, 
+        scales: { x: { display: false }, y: { grid: { borderDash: [4, 4] } } },
+        animation: { duration: 800 }
+    };
+    
+    let chartCost = null;
+    let chartVolt = null;
+
+    function initCharts() {
+        const ctx1 = document.getElementById('chart-cost').getContext('2d');
+        const ctx2 = document.getElementById('chart-volt').getContext('2d');
+        
+        chartCost = new Chart(ctx1, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                {label:'UB (真实)', borderColor:'#ff375f', backgroundColor:'rgba(255,55,95,0.1)', data:[], tension:0.3}, 
+                {label:'LB (预估)', borderColor:'#0071e3', backgroundColor:'rgba(0,113,227,0.1)', data:[], tension:0.3}
+            ]}, options: commonOpts
+        });
+
+        chartVolt = new Chart(ctx2, {
+            type: 'line',
+            data: { labels: Array.from({length:69},(_,i)=>i), datasets: [
+                {label:'Voltage', borderColor:'#34c759', borderWidth:2, data:[], pointRadius:0}, 
+                {label:'Limit 1.05', borderColor:'red', borderDash:[5,5], pointRadius:0, data:Array(69).fill(1.05)}
+            ]}, 
+            options: { ...commonOpts, scales: { y: { min:0.9, max:1.15 } } }
+        });
+    }
+
+    // --- 动画控制 ---
+    function resetBall(id, startPos) {
+        const el = document.getElementById(id);
+        el.style.transition = 'none';
+        el.style.left = startPos;
+        el.style.transform = "translate(-50%, -50%) scale(0)";
+        void el.offsetWidth; 
+        el.style.transition = "left 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.4s";
+    }
+
+    // --- 流程控制 ---
+    let currIter = 0;
+    let state = 'IDLE'; 
+
+    function runNextStep() {
+        const btn = document.getElementById('btn-ctrl');
+        
+        if (state === 'IDLE') {
+            if (currIter >= 3) { alert("演示已完成。点击右上角重置。"); return; }
+            currIter++;
+            currentData = steps[currIter-1]; 
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> MP 正在求解...';
+            document.getElementById('status-mp').innerText = "状态: 求解中...";
+            log(`[Iter ${currIter}] MP 开始计算投资方案...`);
+            
+            setTimeout(() => {
+                const data = steps[currIter-1];
+                updateKPI(data.lb, null);
+                
+                resetBall('ball-down', '0%');
+                const ball = document.getElementById('ball-down');
+                ball.style.transform = "translate(-50%, -50%) scale(1)";
+                ball.style.left = "50%";
+
+                document.getElementById('status-mp').innerText = "状态: 方案已生成";
+                document.getElementById('status-sp').innerText = "状态: 等待方案";
+                log(`[Iter ${currIter}] 方案生成。请点击中间球体下发。`);
+                
+                btn.innerHTML = "等待签收方案...";
+                state = 'WAIT_DOWN';
+            }, 1000);
+        }
+    }
+
+    function resumeStep(dir) {
+        const btn = document.getElementById('btn-ctrl');
+        const ballDown = document.getElementById('ball-down');
+        const ballUp = document.getElementById('ball-up');
+        hideGlobalPopover();
+
+        if (dir === 'down' && state === 'WAIT_DOWN') {
+            ballDown.style.left = "100%";
+            ballDown.style.transform = "translate(-50%, -50%) scale(0)";
+
+            log(`[Iter ${currIter}] SP 已签收。开始 Max-Min 攻击...`);
+            btn.innerHTML = '<i class="fas fa-bolt"></i> SP 正在攻击...';
+            document.getElementById('status-sp').innerText = "状态: 求解中...";
+            
+            setTimeout(() => {
+                const data = steps[currIter-1];
+                updateCharts(currIter, data.lb, data.ub, data.volt);
+                updateKPI(data.lb, data.ub);
+                
+                resetBall('ball-up', '100%');
+                ballUp.style.transform = "translate(-50%, -50%) scale(1)";
+                ballUp.style.left = "50%";
+
+                document.getElementById('status-sp').innerText = "状态: 校验完成";
+                log(`[Iter ${currIter}] SP 校验结束。Cut 已生成，请点击回传。`);
+                btn.innerHTML = "等待回传 Cut...";
+                state = 'WAIT_UP';
+            }, 1200);
+        }
+        else if (dir === 'up' && state === 'WAIT_UP') {
+            ballUp.style.left = "0%"; 
+            ballUp.style.transform = "translate(-50%, -50%) scale(0)"; 
+
+            log(`[Iter ${currIter}] MP 收到 Cut。约束集已更新。`);
+            
+            if (currIter === 3) {
+                btn.innerHTML = '算法收敛 (Converged)';
+                btn.style.background = '#34c759';
+                btn.disabled = true;
+                log(`[System] Gap < 1%. 最终方案确认。`);
+                state = 'DONE';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = `开始第 ${currIter+1} 轮迭代`;
+                state = 'IDLE';
+            }
+        }
+    }
+
+    // --- 重置功能 ---
+    function resetDemo() {
+        currIter = 0;
+        state = 'IDLE';
+        
+        // 重置 UI
+        const btn = document.getElementById('btn-ctrl');
+        btn.disabled = false;
+        btn.style.background = '#1d1d1f';
+        btn.innerHTML = '<i class="fas fa-play"></i> 开始第一轮迭代';
+        
+        document.getElementById('status-mp').innerText = "状态: 就绪";
+        document.getElementById('status-sp').innerText = "状态: 等待";
+        
+        updateKPI('-', '-');
+        document.getElementById('kpi-iter').innerText = 0;
+        
+        // 重置球体
+        resetBall('ball-down', '0%');
+        resetBall('ball-up', '100%');
+        
+        // 重置图表
+        chartCost.data.labels = [];
+        chartCost.data.datasets[0].data = [];
+        chartCost.data.datasets[1].data = [];
+        chartCost.update();
+        
+        chartVolt.data.datasets[0].data = [];
+        chartVolt.update();
+        
+        // 重置日志
+        document.getElementById('logger').innerHTML = '<div class="log-line">[SYS] System Reset. Ready.</div>';
+    }
+
+    // --- 辅助函数 ---
+    function updateKPI(lb, ub) {
+        document.getElementById('kpi-iter').innerText = currIter;
+        document.getElementById('kpi-lb').innerText = lb;
+        document.getElementById('kpi-ub').innerText = ub;
+        if(lb !== '-' && ub !== '-') {
+            const gap = ((ub-lb)/ub*100).toFixed(1);
+            document.getElementById('kpi-gap').innerText = gap + '%';
+        } else {
+            document.getElementById('kpi-gap').innerText = '-';
+        }
+    }
+
+    function updateCharts(iter, lb, ub, volt) {
+        chartCost.data.labels.push(iter);
+        chartCost.data.datasets[0].data.push(ub);
+        chartCost.data.datasets[1].data.push(lb);
+        chartCost.update();
+        chartVolt.data.datasets[0].data = volt;
+        chartVolt.update();
+    }
+
+    function log(msg) {
+        const box = document.getElementById('logger');
+        const div = document.createElement('div');
+        div.className = 'log-line';
+        div.innerText = msg;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // --- 详情弹窗 ---
+    function openDetail(type) {
+        const modal = document.getElementById('detail-modal');
+        const content = document.getElementById('modal-body');
+        modal.classList.add('active');
+
+        if (type === 'MP') {
+            content.innerHTML = `
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+                <h2 class="modal-title" style="color:var(--mp-color)">主问题 (Master Problem) 详解</h2>
+                <p class="modal-subtitle">MP 采用 <strong>混合整数二阶锥规划 (MISOCP)</strong> 建模，负责投资决策。</p>
+                
+                <div class="section-block">
+                    <div class="section-title">1. 核心决策变量</div>
+                    <div class="def-item">
+                        <div class="def-term">$z_{hdt, k}$</div>
+                        <div class="def-desc">HDT 选址变量 (0/1 Binary)</div>
+                    </div>
+                    <div class="def-item">
+                        <div class="def-term">$S_{hdt, k}$</div>
+                        <div class="def-desc">HDT 容量变量 (kVA)</div>
+                    </div>
+                    <div class="def-item">
+                        <div class="def-term">$P_{new, i}$</div>
+                        <div class="def-desc">新增光伏容量 (kW)</div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="section-title">2. 目标函数</div>
+                    <div class="math-highlight">
+                        $$ \\min \\quad \\underbrace{\\sum (C_{fix} z + C_{var} S)}_{设备投资} - \\underbrace{\\sum \\alpha P_{new}}_{光伏收益} + \\underbrace{\\eta}_{预估风险} $$
+                    </div>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+                <h2 class="modal-title" style="color:var(--sp-color)">子问题 (Sub-Problem) 详解</h2>
+                <p class="modal-subtitle">SP 采用 <strong>Max-Min 双层优化</strong>，校验物理安全性。</p>
+                
+                <div class="section-block">
+                    <div class="section-title">1. 双重锚定目标</div>
+                    <div class="math-highlight">
+                        $$ \\max_{u} \\min_{y} \\left( \\underbrace{1000 \\cdot \\sum s_{vio}}_{Penalty: 强制安全} + \\underbrace{50000 \\cdot \\sum P_{loss}}_{Loss: 压死 Gap} \\right) $$
+                    </div>
+                </div>
+                <div class="section-block">
+                    <div class="section-title">2. 物理模型</div>
+                    <div class="math-highlight">
+                        $$ \\left\\| \\begin{pmatrix} 2P_{ij} \\\\ 2Q_{ij} \\\\ I_{ij}^2 - V_i^2 \\end{pmatrix} \\right\\|_2 \\le I_{ij}^2 + V_i^2 $$
+                    </div>
+                </div>
+            `;
+        }
+        MathJax.typesetPromise();
+    }
+
+    function closeModal() { document.getElementById('detail-modal').classList.remove('active'); }
+
+    // 初始化
+    window.onload = initCharts;
+
+</script>
+</body>
+</html>
