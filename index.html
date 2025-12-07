@@ -2,708 +2,654 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>源网协同鲁棒规划 | 在线演示系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>固态变压器磁性材料选型报告 (文献深度版)</title>
     
-    <!-- 依赖库 (使用稳定的 CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- MathJax -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
     <script>
-    window.MathJax = {
-      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
-      svg: { fontCache: 'global' }
-    };
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+    
     <style>
-        :root {
-            --bg-body: #f5f5f7;
-            --card-bg: #ffffff;
-            --primary-text: #1d1d1f;
-            --secondary-text: #86868b;
-            --mp-color: #0071e3;
-            --sp-color: #ff375f;
-            --radius: 18px;
+        /* 投影仪优化：高对比度，大字号 */
+        body { 
+            font-family: 'Noto Sans SC', sans-serif; 
+            background-color: #f1f5f9; 
+            color: #1e293b;
+            font-size: 18px; 
+            line-height: 1.6;
+            overflow-x: hidden;
         }
 
-        * { box-sizing: border-box; outline: none; }
-
-        body {
-            margin: 0; padding: 0;
-            font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, sans-serif;
-            background-color: var(--bg-body);
-            color: var(--primary-text);
-            height: 100vh;
-            display: flex; flex-direction: column;
-            overflow: hidden; 
-        }
-
-        /* --- 顶部导航 --- */
-        header {
-            flex: 0 0 60px;
-            padding: 0 20px;
-            display: flex; align-items: center; justify-content: space-between;
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid #e5e5ea;
-            z-index: 50;
-        }
-        .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
-        .logo i { color: var(--mp-color); }
+        h1, h2, h3 { font-family: 'Oswald', sans-serif; letter-spacing: 0.05em; }
         
-        .kpi-group { display: flex; gap: 15px; font-size: 0.85rem; color: var(--secondary-text); }
-        .kpi-val { color: var(--primary-text); font-weight: 600; font-family: "SF Mono", monospace; margin-left: 4px; }
+        /* Slide Container */
+        .slide-page {
+            display: none;
+            min-height: calc(100vh - 80px);
+            padding: 2rem;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .slide-page.active { display: block; }
 
-        /* --- 重置按钮 (新功能) --- */
-        .btn-reset {
-            padding: 6px 12px;
-            background: #f2f2f7;
-            color: var(--secondary-text);
-            border: 1px solid rgba(0,0,0,0.05);
-            border-radius: 8px;
-            font-size: 0.8rem;
+        .content-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* Deep Dive Accordion - Content Expansion */
+        .deep-dive {
+            margin-top: 1.5rem;
+            border: 2px solid #2563eb;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background-color: #f8fafc;
+        }
+        .deep-dive-header {
+            padding: 1rem 1.5rem;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            font-weight: 700;
             cursor: pointer;
-            transition: 0.2s;
-            display: flex; align-items: center; gap: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #dbeafe;
         }
-        .btn-reset:hover { background: #e5e5ea; color: #000; }
-        .btn-reset:active { transform: scale(0.95); }
-
-        /* --- 主容器 --- */
-        .main-scroll-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex; flex-direction: column; gap: 20px;
+        .deep-dive-header:hover { background-color: #dbeafe; }
+        .deep-dive-content {
+            padding: 0 2rem;
+            max-height: 0;
+            overflow: hidden;
+            background-color: white;
+            transition: max-height 0.5s ease-out, padding 0.5s ease;
         }
-
-        /* --- 上半区 (自适应高度) --- */
-        .stage-grid {
-            display: grid;
-            grid-template-columns: 1fr 450px 1fr; /* 保持中间宽度固定 */
-            gap: 20px;
-            min-height: 450px;
+        .deep-dive.open .deep-dive-content {
+            padding: 2rem;
+            max-height: 2000px; /* Increased for more content */
+            border-top: 1px solid #e2e8f0;
         }
 
-        /* 通用卡片 */
-        .card {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            box-shadow: 0 4px 24px rgba(0,0,0,0.04);
-            border: 1px solid rgba(0,0,0,0.02);
-            display: flex; flex-direction: column;
-            position: relative; z-index: 1;
-            transition: transform 0.2s;
+        /* Nav Buttons */
+        .nav-btn {
+            font-size: 1.1rem;
+            padding: 0.75rem 1.5rem;
+            font-weight: 700;
+            color: #64748b;
+            background: white;
+            border: 1px solid #e2e8f0;
+            margin-right: 0.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+            transition: all 0.2s;
         }
-        .card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.08); }
-        
-        .card-header {
-            padding: 15px 20px;
-            border-bottom: 1px solid #f0f0f0;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .tag { font-size: 0.7rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; }
-        .tag.mp { background: #e0f2ff; color: var(--mp-color); }
-        .tag.sp { background: #ffe0e6; color: var(--sp-color); }
-        
-        .card-body { padding: 20px; flex: 1; font-size: 0.9rem; line-height: 1.6; color: #444; display: flex; flex-direction: column; }
-        .math-box { background: #f9f9fa; padding: 10px; border-radius: 8px; margin: 12px 0; font-size: 0.85rem; border: 1px solid #eee; overflow-x: auto; }
-
-        /* 详情按钮 */
-        .btn-detail {
-            margin-top: auto; width: 100%; padding: 10px;
-            background: #f2f2f7; color: var(--primary-text);
-            border: none; border-radius: 8px;
-            font-size: 0.85rem; font-weight: 600;
-            cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-        }
-        .btn-detail:hover { background: #e5e5ea; }
-        .mp .btn-detail { color: var(--mp-color); background: #e0f2ff; }
-        .mp .btn-detail:hover { background: #d0e9ff; }
-        .sp .btn-detail { color: var(--sp-color); background: #ffe0e6; }
-        .sp .btn-detail:hover { background: #ffd0d9; }
-
-        /* --- 中控区 --- */
-        .interaction-area {
-            display: flex; flex-direction: column; justify-content: center; gap: 24px;
-            position: relative; z-index: 100;
+        .nav-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+            transform: translateY(2px);
         }
 
-        .pipe-row {
-            position: relative; height: 70px;
-            background: #fff; border-radius: 35px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-            display: flex; align-items: center; padding: 0 10px;
-            z-index: 101;
-        }
-        .pipe-label {
-            position: absolute; top: -22px; left: 20px;
-            font-size: 0.7rem; font-weight: 700; color: var(--secondary-text); text-transform: uppercase;
-        }
-        .track { flex: 1; height: 4px; background: #f0f0f0; border-radius: 2px; margin: 0 15px; position: relative; }
+        /* Chart Sizes */
+        .chart-box-lg { height: 450px; width: 100%; position: relative; }
+        .chart-box-md { height: 350px; width: 100%; position: relative; }
 
-        /* 球体 */
-        .ball {
-            width: 44px; height: 44px; border-radius: 50%;
-            background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-            position: absolute; top: 50%;
-            transform: translate(-50%, -50%) scale(0); 
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; z-index: 200; font-size: 1.1rem; transition: none; 
-        }
-        .ball.mp { border: 3px solid var(--mp-color); color: var(--mp-color); }
-        .ball.sp { border: 3px solid var(--sp-color); color: var(--sp-color); }
-        .ball:hover { transform: translate(-50%, -50%) scale(1.15) !important; }
-
-        /* 主按钮 */
-        .btn-main {
-            width: 100%; padding: 16px;
-            background: #1d1d1f; color: #fff;
-            border: none; border-radius: 12px;
-            font-size: 1rem; font-weight: 600;
-            cursor: pointer; transition: 0.2s;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            position: relative; z-index: 101;
-        }
-        .btn-main:hover:not(:disabled) { transform: scale(1.02); background: #000; }
-        .btn-main:disabled { background: #e5e5ea; color: #999; cursor: not-allowed; box-shadow: none; }
-
-        /* --- 下半区 (仪表盘) --- */
-        .dashboard-grid {
-            display: grid; grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px; height: 300px; min-height: 300px;
-        }
-        .dash-card {
-            background: #fff; border-radius: var(--radius); padding: 15px;
-            display: flex; flex-direction: column;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.02);
-        }
-        .dash-title { font-size: 0.8rem; font-weight: 700; color: var(--secondary-text); margin-bottom: 10px; }
-        .chart-box { position: relative; flex: 1; width: 100%; min-height: 0; }
-        .log-content {
-            flex: 1; overflow-y: auto; font-family: "SF Mono", monospace; font-size: 0.75rem;
-            background: #f9f9fa; border-radius: 8px; padding: 10px;
-        }
-        .log-line { margin-bottom: 5px; padding-left: 8px; border-left: 3px solid #ddd; }
-
-        /* --- 全局弹窗 (Global Popover) --- */
-        #global-popover {
-            position: fixed; top: 0; left: 0; width: 260px;
-            background: rgba(255,255,255,0.98); backdrop-filter: blur(20px);
-            border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-            padding: 15px; opacity: 0; pointer-events: none;
-            transition: opacity 0.2s; z-index: 99999;
-            border: 1px solid rgba(0,0,0,0.08); transform: translateX(-50%);
-        }
-        #global-popover.active { opacity: 1; pointer-events: auto; }
-        #global-popover::before {
-            content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
-            border-width: 0 6px 6px 6px; border-style: solid;
-            border-color: transparent transparent rgba(255,255,255,0.98) transparent;
-        }
-        .pop-row { display: flex; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px dashed #eee; padding-bottom: 4px; font-size: 0.8rem; }
-        .pop-val { font-weight: 600; color: #000; }
-
-        /* --- 详情模态框 --- */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
-            z-index: 20000; display: none; justify-content: center; align-items: center;
-            opacity: 0; transition: opacity 0.3s;
-        }
-        .modal-overlay.active { opacity: 1; display: flex; }
-        .modal-content {
-            width: 800px; max-height: 85vh; background: #fff; border-radius: 24px;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.15); padding: 40px;
-            overflow-y: auto; position: relative; border: 1px solid #eee;
-        }
-        .close-modal {
-            position: absolute; top: 20px; right: 20px; width: 36px; height: 36px;
-            background: #f5f5f7; border-radius: 50%; border: none; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; color: #666; font-size: 1.2rem;
-        }
-        .close-modal:hover { background: #e5e5ea; color: #000; }
-
-        /* --- 响应式适配 --- */
-        @media (max-width: 1200px) {
-            .stage-grid { grid-template-columns: 1fr 350px 1fr; gap: 15px; }
-            .dashboard-grid { grid-template-columns: 1fr 1fr; height: auto; }
-            .dash-card:last-child { grid-column: 1 / -1; height: 200px; }
-        }
-        @media (max-width: 900px) {
-            .stage-grid { grid-template-columns: 1fr; height: auto; }
-            .interaction-area { order: -1; margin: 20px 0; }
-            .dashboard-grid { grid-template-columns: 1fr; }
-            header { padding: 0 15px; }
-            .kpi-group { display: none; } /* 小屏隐藏 KPI */
+        /* Text Highlights */
+        .highlight-box {
+            background-color: #fef9c3;
+            border-left: 4px solid #ca8a04;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.95em;
         }
 
-        /* 详情页样式 */
-        h2.modal-title { margin: 0 0 10px 0; font-size: 1.8rem; }
-        p.modal-subtitle { color: #666; margin: 0 0 30px 0; font-size: 1rem; }
-        .section-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; border-bottom: 2px solid #f5f5f7; padding-bottom: 8px; }
-        .def-item { display: grid; grid-template-columns: 100px 1fr; gap: 15px; margin-bottom: 10px; }
-        .def-term { font-weight: bold; text-align: right; color: #333; }
-        .def-desc { font-size: 0.9rem; color: #555; }
-        .math-highlight { background: #f2f2f7; padding: 15px; border-radius: 10px; border-left: 4px solid #ccc; overflow-x: auto; }
-
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-<!-- 全局悬浮弹窗 -->
-<div id="global-popover">
-    <h4 id="gp-title" style="color:var(--mp-color); margin:0 0 10px 0;">标题</h4>
-    <div id="gp-content">内容...</div>
-    <div style="margin-top:8px; text-align:center; color:#999; font-size:0.7rem;">(点击确认)</div>
-</div>
-
-<!-- 详情模态框 -->
-<div class="modal-overlay" id="detail-modal" onclick="if(event.target===this) closeModal()">
-    <div class="modal-content" id="modal-body"></div>
-</div>
-
-<header>
-    <div class="logo">
-        <i class="fas fa-network-wired"></i>
-        <span>Source-Grid Robust Co-Planning</span>
-    </div>
-    <div style="display:flex; align-items:center; gap:20px;">
-        <div class="kpi-group">
-            <div>ITER: <span class="kpi-val" id="kpi-iter">0</span></div>
-            <div>LB: <span class="kpi-val" id="kpi-lb" style="color:var(--mp-color)">-</span></div>
-            <div>UB: <span class="kpi-val" id="kpi-ub" style="color:var(--sp-color)">-</span></div>
-            <div>GAP: <span class="kpi-val" id="kpi-gap">-</span></div>
-        </div>
-        <button class="btn-reset" onclick="resetDemo()">
-            <i class="fas fa-redo-alt"></i> 重置演示
-        </button>
-    </div>
-</header>
-
-<div class="main-scroll-area">
-    
-    <!-- 上半区 -->
-    <div class="stage-grid">
-        <!-- MP -->
-        <div class="card mp">
-            <div class="card-header">
-                <span>Master Problem</span>
-                <span class="tag mp">MISOCP</span>
+    <!-- Top Navigation -->
+    <header class="bg-white border-b border-slate-300 sticky top-0 z-50 shadow-sm h-20">
+        <div class="max-w-7xl mx-auto flex justify-between items-end px-6 h-full pb-0">
+            <div class="mb-4">
+                <h1 class="text-2xl font-bold text-slate-900">SST 磁性材料选型报告</h1>
             </div>
-            <div class="card-body">
-                <p><strong>决策目标：</strong><br>最小化 (设备投资 + 预估风险 $\eta$)</p>
-                <div class="math-box">$$ \min \sum C_{inv} \cdot x + \eta $$</div>
-                <p style="color:#666; font-size:0.85rem;">统筹全局，平衡投资与风险。</p>
-                <button class="btn-detail" onclick="openDetail('MP')">
-                    <i class="fas fa-book-open"></i> 查看完整建模
-                </button>
-                <div style="margin-top:10px; color:var(--mp-color); font-weight:600; font-size:0.85rem;" id="status-mp">状态: 就绪</div>
+            <div class="flex">
+                <button onclick="switchPage(1)" id="btn-1" class="nav-btn active">1. 物理背景</button>
+                <button onclick="switchPage(2)" id="btn-2" class="nav-btn">2. 纳米晶详解</button>
+                <button onclick="switchPage(3)" id="btn-3" class="nav-btn">3. 铁氧体详解</button>
+                <button onclick="switchPage(4)" id="btn-4" class="nav-btn">4. 决策与展望</button>
             </div>
         </div>
+    </header>
 
-        <!-- 中控 -->
-        <div class="interaction-area">
-            <div class="pipe-row">
-                <div class="pipe-label" style="color:var(--mp-color)">DOWN: 投资方案</div>
-                <div class="track">
-                    <div class="ball mp" id="ball-down" 
-                         onmouseenter="showGlobalPopover(this, 'down')" 
-                         onmouseleave="hideGlobalPopover()"
-                         onclick="resumeStep('down')">
-                        <i class="fas fa-file-contract"></i>
+    <main class="max-w-7xl mx-auto">
+
+        <!-- PAGE 1: PHYSICS & THEORY -->
+        <section id="page-1" class="slide-page active">
+            <div class="content-card">
+                <h2 class="text-3xl font-bold text-slate-800 mb-6 border-b pb-4">第一章：新能源消纳与高频化趋势</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    <div>
+                        <p class="text-xl font-bold text-slate-700 mb-4">
+                            背景：构建新型电力系统的关键装备
+                        </p>
+                        <p class="mb-6 text-justify">
+                            随着“30-60”碳中和目标的推进，风、光等分布式新能源大规模接入电网。电力电子变压器 (PET) 作为交直流混合配网的核心，必须向<strong>大容量、高频化、紧凑化</strong>方向发展。
+                            <br><br>
+                            根据文献调研，高频变压器 (HFT) 是 PET 的核心隔离部件。目前面临的主要矛盾是：<strong>大容量需求与磁性材料高频损耗之间的制约。</strong>
+                        </p>
+                        
+                        <!-- Chart 1: Volume vs Frequency Curve -->
+                        <div class="chart-box-md bg-slate-50 rounded border border-slate-200 p-2">
+                            <canvas id="volumeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="bg-blue-50 p-6 rounded-xl border border-blue-200">
+                            <h3 class="text-xl font-bold text-blue-900 mb-4">物理铁律：Steinmetz 损耗陷阱</h3>
+                            
+                            <p class="text-sm text-blue-800 mb-4">
+                                提升频率可以根据 $A_e \propto 1/f$ 减小体积，但同时会触发涡流损耗指数级上升。
+                            </p>
+                            
+                            <label class="block text-sm font-bold mb-2">工作频率模拟: <span id="freq-label">20 kHz</span></label>
+                            <input type="range" min="1" max="100" value="20" class="w-full h-3 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600 mb-6" oninput="updatePhysicsDemo(this.value)">
+                            
+                            <div class="flex justify-around items-end h-48 border-b-2 border-slate-300 relative">
+                                <div class="text-center w-24">
+                                    <div id="demo-vol" class="w-full bg-slate-500 text-white flex items-center justify-center font-bold transition-all duration-300" style="height: 120px;">体积</div>
+                                    <span class="text-xs font-bold">磁芯体积</span>
+                                </div>
+                                <div class="text-center w-24">
+                                    <div id="demo-loss" class="w-full bg-red-500 text-white flex items-center justify-center font-bold transition-all duration-300" style="height: 40px;">热量</div>
+                                    <span class="text-xs font-bold text-red-600">发热损耗</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deep Dive 1 -->
+                <div class="deep-dive">
+                    <div class="deep-dive-header" onclick="toggleDeepDive(this)">
+                        <span>📚 点击展开：第一性原理与损耗公式推导</span>
+                        <span class="text-2xl">+</span>
+                    </div>
+                    <div class="deep-dive-content">
+                        <div class="grid grid-cols-2 gap-8 mt-4">
+                            <div>
+                                <h4 class="font-bold text-lg mb-2">修正的 Steinmetz 方程 (MSE)</h4>
+                                <p class="bg-gray-100 p-3 rounded font-mono text-sm">$$ P_v = K \cdot f^\alpha \cdot B_{max}^\beta $$</p>
+                                <p class="text-sm mt-2">
+                                    对于正弦波激励，损耗 $P_v$ 由磁滞损耗、涡流损耗和剩余损耗组成。
+                                    <br>在高频下（>10kHz），<strong>涡流损耗</strong> ($P_e \propto f^2 / \rho$) 占比显著增加。因此，提高材料的<strong>电阻率 ($\rho$)</strong> 或减薄带材厚度是降低损耗的关键。
+                                </p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-lg mb-2">磁滞回线物理意义</h4>
+                                                                <p class="text-sm">
+                                    每一次磁化循环包围的面积代表单周期的能量损耗。高频变压器要求材料具有<strong>低矫顽力 ($H_c$)</strong> 以减小回线面积，同时具有<strong>高饱和磁密 ($B_s$)</strong> 以减小体积。
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <button class="btn-main" id="btn-ctrl" onclick="runNextStep()">
-                <i class="fas fa-play"></i> 开始第一轮迭代
-            </button>
+        <!-- PAGE 2: NANOCRYSTALLINE -->
+        <section id="page-2" class="slide-page">
+            <div class="content-card">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 class="text-3xl font-bold text-indigo-900">第二章：纳米晶 (Nanocrystalline)</h2>
+                    <span class="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-full font-bold">FINEMET (1988)</span>
+                </div>
 
-            <div class="pipe-row">
-                <div class="pipe-label" style="color:var(--sp-color); right:20px; left:auto;">UP: 风险反馈</div>
-                <div class="track">
-                    <div class="ball sp" id="ball-up" 
-                         onmouseenter="showGlobalPopover(this, 'up')" 
-                         onmouseleave="hideGlobalPopover()"
-                         onclick="resumeStep('up')">
-                        <i class="fas fa-bolt"></i>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div>
+                        <div class="highlight-box">
+                            <strong>历史背景：</strong> 1988年，日本日立金属的 Yoshizawa 等人在 FeSiB 非晶合金基础上添加 Cu、Nb 元素，开发出 Fe73.5Si13.5B9Nb3Cu1 合金，注册名为 FINEMET。
+                        </div>
+                        <p class="text-lg text-justify">
+                            纳米晶通过“非晶基体+纳米晶粒”的双相结构，结合了硅钢的高 Bs 和非晶的低损耗。是目前大功率 SST (10-50kHz) 的首选。
+                        </p>
+                        
+                        <!-- Chart 2: Radar Comparison -->
+                        <div class="chart-box-md mt-4">
+                            <canvas id="nanoRadarChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <!-- Chart 3: B-H Loop -->
+                        <div>
+                            <h4 class="font-bold text-center text-slate-600 mb-2">磁滞回线对比 (模拟)</h4>
+                            <div class="chart-box-md">
+                                <canvas id="bhLoopChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deep Dive 2 -->
+                <div class="deep-dive">
+                    <div class="deep-dive-header" onclick="toggleDeepDive(this)">
+                        <span>🏭 点击展开：制造工艺与技术瓶颈 (压力喷铸 vs 平面流铸)</span>
+                        <span class="text-2xl">+</span>
+                    </div>
+                    <div class="deep-dive-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mt-8">
+                            <div>
+                                <h4 class="font-bold text-xl mb-4 text-indigo-800">1. 工艺对比</h4>
+                                <ul class="list-disc pl-5 space-y-2">
+                                    <li><strong>压力喷铸法 (常用)：</strong> 国内主流（安泰、云路）。喷嘴喷射到冷却辊。带材厚度 18-20μm，宽度 < 100mm。</li>
+                                    <li><strong>平面流铸法 (先进)：</strong> 喷嘴距辊轮极近，熔体流动更稳。可制备<strong>更宽 (>120mm)</strong>、<strong>更薄 (14-16μm)</strong> 的带材。目前仅日立金属、德国VAC掌握成熟技术。</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xl mb-4 text-red-700">2. 核心技术痛点</h4>
+                                <ul class="list-disc pl-5 space-y-2">
+                                    <li><strong>超薄化挑战：</strong> 18μm 带材在 20kHz 下损耗约为 7.5W/kg。若能减薄至 14μm，高频损耗可显著降低，但制备难度极大。</li>
+                                    <li><strong>宽幅化挑战：</strong> 只有宽度达到 120mm 以上，才能卷绕出满足 MVA 级变压器需求的大尺寸铁芯。</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- SP -->
-        <div class="card sp">
-            <div class="card-header">
-                <span>Sub-Problem</span>
-                <span class="tag sp">Exact SOCP</span>
+        <!-- PAGE 3: FERRITE -->
+        <section id="page-3" class="slide-page">
+            <div class="content-card">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 class="text-3xl font-bold text-slate-800">第三章：锰锌铁氧体 (MnZn Ferrite)</h2>
+                    <span class="px-4 py-2 bg-slate-200 text-slate-800 rounded-full font-bold">Snoek (1935)</span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-8">
+                    <div>
+                        <div class="highlight-box">
+                            <strong>历史背景：</strong> 1935年荷兰 Philips 实验室 Snoek 研制成功。日本 TDK 后续开发了著名的 PC 系列 (PC30->PC40->PC95)，将高频损耗从 500kW/m³ 降至 200kW/m³ 以下。
+                        </div>
+                        <p class="text-lg text-justify">
+                            铁氧体本质是氧化物陶瓷。其核心优势在于<strong>电阻率极高</strong>，使其在 >100kHz 频段没有涡流损耗问题，是中小功率高频应用的性价比之王。
+                        </p>
+                        
+                        <!-- Chart 4: Resistivity Comparison -->
+                        <div class="mt-6">
+                            <h4 class="font-bold text-sm text-slate-500 mb-2">电阻率对比 (对数坐标)</h4>
+                            <div class="h-48 w-full">
+                                <canvas id="resistivityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart 5: Snoek Limit -->
+                    <div>
+                        <h4 class="font-bold text-slate-700 mb-2 text-center">Snoek 极限：磁导率随频率衰减</h4>
+                        <div class="chart-box-md">
+                            <canvas id="snoekChart"></canvas>
+                        </div>
+                        <p class="text-sm text-slate-500 mt-2 text-center">物理限制：频率越高，初始磁导率 $\mu_i$ 越低。</p>
+                    </div>
+                </div>
+
+                <!-- Deep Dive 3 -->
+                <div class="deep-dive">
+                    <div class="deep-dive-header" onclick="toggleDeepDive(this)">
+                        <span>⚡ 点击展开：高电阻率微观机理 (电子跳跃)</span>
+                        <span class="text-2xl">+</span>
+                    </div>
+                    <div class="deep-dive-content">
+                        <p class="mt-4 text-justify">
+                            <strong>微观机理：</strong> 铁氧体中没有自由电子，导电依赖于电子在 $Fe^{2+}$ 和 $Fe^{3+}$ 离子间的跳跃 (Hopping)。
+                            <br><br>
+                            <strong>工艺控制：</strong> 在制造过程中，通过在晶界处掺入钙(Ca)、硅(Si)等氧化物，形成高阻抗的绝缘晶界层，切断电子跳跃路径。这使得 MnZn 铁氧体电阻率可达 $1 \sim 10 \Omega \cdot m$（金属的 $10^6$ 倍）。
+                        </p>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <p><strong>校验目标：</strong><br>寻找最恶劣场景，计算真实代价。</p>
-                <div class="math-box">$$ \max_u \min_y (M \cdot \text{Vio} + \text{Loss}) $$</div>
-                <p style="color:#666; font-size:0.85rem;">双重锚定机制，确保物理真实。</p>
-                <button class="btn-detail" onclick="openDetail('SP')">
-                    <i class="fas fa-book-open"></i> 查看物理方程
-                </button>
-                <div style="margin-top:10px; color:var(--sp-color); font-weight:600; font-size:0.85rem;" id="status-sp">状态: 等待</div>
+        </section>
+
+        <!-- PAGE 4: CONCLUSION -->
+        <section id="page-4" class="slide-page">
+            <div class="content-card">
+                <h2 class="text-3xl font-bold text-slate-900 mb-6 border-b pb-4">第四章：决策结论与未来展望</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <!-- Chart 6: The Crossover (Main Decision Tool) -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <h3 class="text-lg font-bold text-center mb-4">损耗曲线交叉点 (决策黄金分割线)</h3>
+                        <div class="chart-box-lg">
+                            <canvas id="crossoverChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col justify-between">
+                        <!-- Chart 7: Future Challenges TRL -->
+                        <div class="h-64 w-full mb-6">
+                            <h3 class="text-lg font-bold text-center mb-2">未来技术挑战成熟度 (TRL 预估)</h3>
+                            <canvas id="trlChart"></canvas>
+                        </div>
+
+                        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 text-sm">
+                            <strong class="text-yellow-900 block mb-1">主编总结与展望：</strong>
+                            <p class="mb-2">
+                                1. <strong>选型策略：</strong> <70kHz 大功率选纳米晶；>100kHz 中小功率选铁氧体。
+                            </p>
+                            <p>
+                                2. <strong>未来挑战：</strong>
+                                <br> - <strong>材料端：</strong> 突破宽幅(120mm+)、超薄(14μm)纳米晶制备技术。
+                                <br> - <strong>设计端：</strong> 解决多物理场耦合（电-磁-热-流体）下的散热难题，从单纯的电磁设计转向综合场设计。
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- 下半区 -->
-    <div class="dashboard-grid">
-        <div class="dash-card">
-            <div class="dash-title">收敛曲线 (Cost)</div>
-            <div class="chart-box">
-                <canvas id="chart-cost"></canvas>
-            </div>
-        </div>
-        <div class="dash-card">
-            <div class="dash-title">电压分布 (Worst Case)</div>
-            <div class="chart-box">
-                <canvas id="chart-volt"></canvas>
-            </div>
-        </div>
-        <div class="dash-card">
-            <div class="dash-title">系统日志</div>
-            <div class="log-content" id="logger">
-                <div class="log-line">[SYS] Framework Initialized.</div>
-            </div>
-        </div>
-    </div>
+    </main>
 
-</div>
+    <!-- CHART.JS LOGIC -->
+    <script>
+        // Global Settings
+        Chart.defaults.font.size = 14;
+        Chart.defaults.font.family = "'Noto Sans SC', sans-serif";
+        Chart.defaults.color = '#334155';
 
-<script>
-    // --- 全局弹窗逻辑 (向下弹出) ---
-    let currentPopoverTarget = null;
-    const globalPopover = document.getElementById('global-popover');
-    const gpTitle = document.getElementById('gp-title');
-    const gpContent = document.getElementById('gp-content');
-    let currentData = null;
+        // --- Navigation Logic ---
+        function switchPage(pageNum) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${pageNum}`).classList.add('active');
 
-    function showGlobalPopover(target, type) {
-        const style = window.getComputedStyle(target);
-        if (style.transform.includes('matrix(0,')) return; 
+            document.querySelectorAll('.slide-page').forEach(page => page.classList.remove('active'));
+            document.getElementById(`page-${pageNum}`).classList.add('active');
 
-        currentPopoverTarget = target;
-        
-        if (type === 'down') {
-            gpTitle.style.color = 'var(--mp-color)';
-            gpTitle.innerText = '投资方案详情';
-            gpContent.innerHTML = currentData ? `
-                <div class="pop-row"><span>HDT</span><span style="font-weight:700">${currentData.mp_out.hdt}</span></div>
-                <div class="pop-row"><span>PV</span><span style="font-weight:700">${currentData.mp_out.pv}</span></div>
-                <div class="pop-row"><span>Risk</span><span>${currentData.mp_out.risk}</span></div>
-            ` : '等待生成...';
-        } else {
-            gpTitle.style.color = 'var(--sp-color)';
-            gpTitle.innerText = '风险评估报告';
-            gpContent.innerHTML = currentData ? `
-                <div class="pop-row"><span>Scene</span><span>${currentData.sp_out.weather}</span></div>
-                <div class="pop-row"><span>Vio</span><span style="color:${currIter<3?'red':'green'}">${currentData.sp_out.vio}</span></div>
-                <div class="pop-row"><span>Cut</span><span>${currentData.sp_out.pen}</span></div>
-            ` : '等待生成...';
-        }
-
-        // 定位到球体正下方
-        const rect = target.getBoundingClientRect();
-        const top = rect.bottom + 15; 
-        const left = rect.left + rect.width / 2;
-
-        globalPopover.style.top = top + 'px';
-        globalPopover.style.left = left + 'px';
-        globalPopover.classList.add('active');
-    }
-
-    function hideGlobalPopover() {
-        globalPopover.classList.remove('active');
-    }
-
-    // --- 数据剧本 ---
-    const steps = [
-        {
-            mp_out: { hdt: "无", pv: "Max (全铺满)", risk: 0 },
-            sp_out: { weather: "光伏100% 负荷20%", vio: "1.09 pu (严重)", pen: 8000 },
-            lb: 2000, ub: 10000,
-            volt: Array.from({length:69}, (_,i) => 1.0 + Math.random()*0.02 + (i>30?0.09:0))
-        },
-        {
-            mp_out: { hdt: "节点 53 (300kVA)", pv: "局部削减", risk: 8000 },
-            sp_out: { weather: "光伏80% 负荷15%", vio: "1.06 pu (轻微)", pen: 1200 },
-            lb: 5000, ub: 8500,
-            volt: Array.from({length:69}, (_,i) => 1.0 + Math.random()*0.015 + (i>30?0.06:0))
-        },
-        {
-            mp_out: { hdt: "节点 53 & 29", pv: "最优配置", risk: 1200 },
-            sp_out: { weather: "任意场景", vio: "安全 (<1.05)", pen: 50 },
-            lb: 7500, ub: 7550,
-            volt: Array.from({length:69}, (_,i) => 1.0 + Math.random()*0.01 + (i>30?0.04:0))
-        }
-    ];
-
-    // --- 图表初始化 ---
-    const commonOpts = { 
-        responsive: true, 
-        maintainAspectRatio: false,
-        plugins: { legend: { display: true, position:'bottom', labels:{boxWidth:10, padding:10} } }, 
-        scales: { x: { display: false }, y: { grid: { borderDash: [4, 4] } } },
-        animation: { duration: 800 }
-    };
-    
-    let chartCost = null;
-    let chartVolt = null;
-
-    function initCharts() {
-        const ctx1 = document.getElementById('chart-cost').getContext('2d');
-        const ctx2 = document.getElementById('chart-volt').getContext('2d');
-        
-        chartCost = new Chart(ctx1, {
-            type: 'line',
-            data: { labels: [], datasets: [
-                {label:'UB (真实)', borderColor:'#ff375f', backgroundColor:'rgba(255,55,95,0.1)', data:[], tension:0.3}, 
-                {label:'LB (预估)', borderColor:'#0071e3', backgroundColor:'rgba(0,113,227,0.1)', data:[], tension:0.3}
-            ]}, options: commonOpts
-        });
-
-        chartVolt = new Chart(ctx2, {
-            type: 'line',
-            data: { labels: Array.from({length:69},(_,i)=>i), datasets: [
-                {label:'Voltage', borderColor:'#34c759', borderWidth:2, data:[], pointRadius:0}, 
-                {label:'Limit 1.05', borderColor:'red', borderDash:[5,5], pointRadius:0, data:Array(69).fill(1.05)}
-            ]}, 
-            options: { ...commonOpts, scales: { y: { min:0.9, max:1.15 } } }
-        });
-    }
-
-    // --- 动画控制 ---
-    function resetBall(id, startPos) {
-        const el = document.getElementById(id);
-        el.style.transition = 'none';
-        el.style.left = startPos;
-        el.style.transform = "translate(-50%, -50%) scale(0)";
-        void el.offsetWidth; 
-        el.style.transition = "left 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.4s";
-    }
-
-    // --- 流程控制 ---
-    let currIter = 0;
-    let state = 'IDLE'; 
-
-    function runNextStep() {
-        const btn = document.getElementById('btn-ctrl');
-        
-        if (state === 'IDLE') {
-            if (currIter >= 3) { alert("演示已完成。点击右上角重置。"); return; }
-            currIter++;
-            currentData = steps[currIter-1]; 
-            
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> MP 正在求解...';
-            document.getElementById('status-mp').innerText = "状态: 求解中...";
-            log(`[Iter ${currIter}] MP 开始计算投资方案...`);
-            
+            // Lazy Load Charts
             setTimeout(() => {
-                const data = steps[currIter-1];
-                updateKPI(data.lb, null);
-                
-                resetBall('ball-down', '0%');
-                const ball = document.getElementById('ball-down');
-                ball.style.transform = "translate(-50%, -50%) scale(1)";
-                ball.style.left = "50%";
-
-                document.getElementById('status-mp').innerText = "状态: 方案已生成";
-                document.getElementById('status-sp').innerText = "状态: 等待方案";
-                log(`[Iter ${currIter}] 方案生成。请点击中间球体下发。`);
-                
-                btn.innerHTML = "等待签收方案...";
-                state = 'WAIT_DOWN';
-            }, 1000);
+                if(pageNum === 1) renderPage1Charts();
+                if(pageNum === 2) renderPage2Charts();
+                if(pageNum === 3) renderPage3Charts();
+                if(pageNum === 4) renderPage4Charts();
+            }, 100);
         }
-    }
 
-    function resumeStep(dir) {
-        const btn = document.getElementById('btn-ctrl');
-        const ballDown = document.getElementById('ball-down');
-        const ballUp = document.getElementById('ball-up');
-        hideGlobalPopover();
-
-        if (dir === 'down' && state === 'WAIT_DOWN') {
-            ballDown.style.left = "100%";
-            ballDown.style.transform = "translate(-50%, -50%) scale(0)";
-
-            log(`[Iter ${currIter}] SP 已签收。开始 Max-Min 攻击...`);
-            btn.innerHTML = '<i class="fas fa-bolt"></i> SP 正在攻击...';
-            document.getElementById('status-sp').innerText = "状态: 求解中...";
-            
-            setTimeout(() => {
-                const data = steps[currIter-1];
-                updateCharts(currIter, data.lb, data.ub, data.volt);
-                updateKPI(data.lb, data.ub);
-                
-                resetBall('ball-up', '100%');
-                ballUp.style.transform = "translate(-50%, -50%) scale(1)";
-                ballUp.style.left = "50%";
-
-                document.getElementById('status-sp').innerText = "状态: 校验完成";
-                log(`[Iter ${currIter}] SP 校验结束。Cut 已生成，请点击回传。`);
-                btn.innerHTML = "等待回传 Cut...";
-                state = 'WAIT_UP';
-            }, 1200);
-        }
-        else if (dir === 'up' && state === 'WAIT_UP') {
-            ballUp.style.left = "0%"; 
-            ballUp.style.transform = "translate(-50%, -50%) scale(0)"; 
-
-            log(`[Iter ${currIter}] MP 收到 Cut。约束集已更新。`);
-            
-            if (currIter === 3) {
-                btn.innerHTML = '算法收敛 (Converged)';
-                btn.style.background = '#34c759';
-                btn.disabled = true;
-                log(`[System] Gap < 1%. 最终方案确认。`);
-                state = 'DONE';
+        // --- Deep Dive Toggle ---
+        function toggleDeepDive(header) {
+            const parent = header.parentElement;
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('span:last-child');
+            if (parent.classList.contains('open')) {
+                parent.classList.remove('open');
+                icon.innerText = "+";
             } else {
-                btn.disabled = false;
-                btn.innerHTML = `开始第 ${currIter+1} 轮迭代`;
-                state = 'IDLE';
+                parent.classList.add('open');
+                icon.innerText = "−";
             }
         }
-    }
 
-    // --- 重置功能 ---
-    function resetDemo() {
-        currIter = 0;
-        state = 'IDLE';
-        
-        // 重置 UI
-        const btn = document.getElementById('btn-ctrl');
-        btn.disabled = false;
-        btn.style.background = '#1d1d1f';
-        btn.innerHTML = '<i class="fas fa-play"></i> 开始第一轮迭代';
-        
-        document.getElementById('status-mp').innerText = "状态: 就绪";
-        document.getElementById('status-sp').innerText = "状态: 等待";
-        
-        updateKPI('-', '-');
-        document.getElementById('kpi-iter').innerText = 0;
-        
-        // 重置球体
-        resetBall('ball-down', '0%');
-        resetBall('ball-up', '100%');
-        
-        // 重置图表
-        chartCost.data.labels = [];
-        chartCost.data.datasets[0].data = [];
-        chartCost.data.datasets[1].data = [];
-        chartCost.update();
-        
-        chartVolt.data.datasets[0].data = [];
-        chartVolt.update();
-        
-        // 重置日志
-        document.getElementById('logger').innerHTML = '<div class="log-line">[SYS] System Reset. Ready.</div>';
-    }
+        // --- Interactive Demo Logic (Page 1) ---
+        function updatePhysicsDemo(val) {
+            const volBar = document.getElementById('demo-vol');
+            const lossBar = document.getElementById('demo-loss');
+            const label = document.getElementById('freq-label');
+            
+            label.innerText = val + " kHz";
+            
+            // Volume ~ 1/f
+            let volHeight = 160 * (10 / (parseInt(val) + 10)); 
+            if (volHeight < 20) volHeight = 20;
+            
+            // Loss ~ f^1.5
+            let lossHeight = 20 + Math.pow(val, 1.3) * 0.7; 
+            if (lossHeight > 160) lossHeight = 160;
 
-    // --- 辅助函数 ---
-    function updateKPI(lb, ub) {
-        document.getElementById('kpi-iter').innerText = currIter;
-        document.getElementById('kpi-lb').innerText = lb;
-        document.getElementById('kpi-ub').innerText = ub;
-        if(lb !== '-' && ub !== '-') {
-            const gap = ((ub-lb)/ub*100).toFixed(1);
-            document.getElementById('kpi-gap').innerText = gap + '%';
-        } else {
-            document.getElementById('kpi-gap').innerText = '-';
+            volBar.style.height = volHeight + 'px';
+            volBar.innerText = Math.round((volHeight/160)*100) + "%";
+            lossBar.style.height = lossHeight + 'px';
+            lossBar.innerText = Math.round((lossHeight/20)*100) + "%";
         }
-    }
 
-    function updateCharts(iter, lb, ub, volt) {
-        chartCost.data.labels.push(iter);
-        chartCost.data.datasets[0].data.push(ub);
-        chartCost.data.datasets[1].data.push(lb);
-        chartCost.update();
-        chartVolt.data.datasets[0].data = volt;
-        chartVolt.update();
-    }
-
-    function log(msg) {
-        const box = document.getElementById('logger');
-        const div = document.createElement('div');
-        div.className = 'log-line';
-        div.innerText = msg;
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
-    }
-
-    // --- 详情弹窗 ---
-    function openDetail(type) {
-        const modal = document.getElementById('detail-modal');
-        const content = document.getElementById('modal-body');
-        modal.classList.add('active');
-
-        if (type === 'MP') {
-            content.innerHTML = `
-                <button class="close-modal" onclick="closeModal()">&times;</button>
-                <h2 class="modal-title" style="color:var(--mp-color)">主问题 (Master Problem) 详解</h2>
-                <p class="modal-subtitle">MP 采用 <strong>混合整数二阶锥规划 (MISOCP)</strong> 建模，负责投资决策。</p>
-                
-                <div class="section-block">
-                    <div class="section-title">1. 核心决策变量</div>
-                    <div class="def-item">
-                        <div class="def-term">$z_{hdt, k}$</div>
-                        <div class="def-desc">HDT 选址变量 (0/1 Binary)</div>
-                    </div>
-                    <div class="def-item">
-                        <div class="def-term">$S_{hdt, k}$</div>
-                        <div class="def-desc">HDT 容量变量 (kVA)</div>
-                    </div>
-                    <div class="def-item">
-                        <div class="def-term">$P_{new, i}$</div>
-                        <div class="def-desc">新增光伏容量 (kW)</div>
-                    </div>
-                </div>
-
-                <div class="section-block">
-                    <div class="section-title">2. 目标函数</div>
-                    <div class="math-highlight">
-                        $$ \\min \\quad \\underbrace{\\sum (C_{fix} z + C_{var} S)}_{设备投资} - \\underbrace{\\sum \\alpha P_{new}}_{光伏收益} + \\underbrace{\\eta}_{预估风险} $$
-                    </div>
-                </div>
-            `;
-        } else {
-            content.innerHTML = `
-                <button class="close-modal" onclick="closeModal()">&times;</button>
-                <h2 class="modal-title" style="color:var(--sp-color)">子问题 (Sub-Problem) 详解</h2>
-                <p class="modal-subtitle">SP 采用 <strong>Max-Min 双层优化</strong>，校验物理安全性。</p>
-                
-                <div class="section-block">
-                    <div class="section-title">1. 双重锚定目标</div>
-                    <div class="math-highlight">
-                        $$ \\max_{u} \\min_{y} \\left( \\underbrace{1000 \\cdot \\sum s_{vio}}_{Penalty: 强制安全} + \\underbrace{50000 \\cdot \\sum P_{loss}}_{Loss: 压死 Gap} \\right) $$
-                    </div>
-                </div>
-                <div class="section-block">
-                    <div class="section-title">2. 物理模型</div>
-                    <div class="math-highlight">
-                        $$ \\left\\| \\begin{pmatrix} 2P_{ij} \\\\ 2Q_{ij} \\\\ I_{ij}^2 - V_i^2 \\end{pmatrix} \\right\\|_2 \\le I_{ij}^2 + V_i^2 $$
-                    </div>
-                </div>
-            `;
+        // --- Chart Renders ---
+        
+        let volChartInstance = null;
+        function renderPage1Charts() {
+            if(volChartInstance) return;
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            const labels = [];
+            const data = [];
+            for(let i=1; i<=100; i+=5) {
+                labels.push(i);
+                data.push(100 / Math.pow(i, 0.6)); 
+            }
+            
+            volChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '理论体积 (%) vs 频率 (kHz)',
+                        data: data,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { title: {display:true, text:'相对体积 (%)'}, min: 0 },
+                        x: { title: {display:true, text:'频率 (kHz)'} }
+                    }
+                }
+            });
         }
-        MathJax.typesetPromise();
-    }
 
-    function closeModal() { document.getElementById('detail-modal').classList.remove('active'); }
+        let nanoRadarInstance = null;
+        let bhLoopInstance = null;
+        function renderPage2Charts() {
+            if(!nanoRadarInstance) {
+                const ctx = document.getElementById('nanoRadarChart').getContext('2d');
+                nanoRadarInstance = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['饱和磁密 Bs', '磁导率 μ', '居里温度 Tc', '机械强度', '成本优势'],
+                        datasets: [{
+                            label: '纳米晶 (Finemet)',
+                            data: [90, 95, 95, 40, 50],
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.2)'
+                        }, {
+                            label: '铁氧体 (对比)',
+                            data: [40, 60, 40, 60, 90],
+                            borderColor: '#94a3b8',
+                            backgroundColor: 'transparent',
+                            borderDash: [5,5]
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
 
-    // 初始化
-    window.onload = initCharts;
+            if(!bhLoopInstance) {
+                const ctx2 = document.getElementById('bhLoopChart').getContext('2d');
+                const generateLoop = (Hc, Bs) => {
+                    let d = [];
+                    for(let i=0; i<=360; i+=10) {
+                        let rad = i * Math.PI / 180;
+                        let H = Math.cos(rad) * 100;
+                        let B = Bs * Math.tanh((H - (i<180?Hc:-Hc))*0.05);
+                        d.push({x:H, y:B});
+                    }
+                    return d;
+                };
 
-</script>
+                bhLoopInstance = new Chart(ctx2, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: '纳米晶 (低矫顽力=低损耗)',
+                            data: generateLoop(5, 1.25),
+                            borderColor: '#4f46e5',
+                            showLine: true,
+                            pointRadius: 0
+                        }, {
+                            label: '普通非晶 (对比)',
+                            data: generateLoop(20, 1.5),
+                            borderColor: '#94a3b8',
+                            borderDash: [5,5],
+                            showLine: true,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { x: {title: {display:true, text:'磁场 H'}}, y: {title: {display:true, text:'磁感 B'}} }
+                    }
+                });
+            }
+        }
+
+        let resistInstance = null;
+        let snoekInstance = null;
+        function renderPage3Charts() {
+            if(!resistInstance) {
+                const ctx = document.getElementById('resistivityChart').getContext('2d');
+                resistInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['铜 (导体)', '纳米晶 (合金)', '铁氧体 (陶瓷)'],
+                        datasets: [{
+                            label: '电阻率 (μΩ·cm)',
+                            data: [1.7, 130, 1000000],
+                            backgroundColor: ['#ef4444', '#f59e0b', '#22c55e']
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { x: { type: 'logarithmic', title: {display:true, text:'电阻率 (Log Scale)'} } },
+                        plugins: { legend: {display: false} }
+                    }
+                });
+            }
+            if(!snoekInstance) {
+                const ctx2 = document.getElementById('snoekChart').getContext('2d');
+                snoekInstance = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: ['10k', '100k', '500k', '1M', '2M'],
+                        datasets: [{
+                            label: '初始磁导率 μi',
+                            data: [10000, 8000, 4000, 2000, 800],
+                            borderColor: '#475569',
+                            tension: 0.4,
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        scales: { y: {title: {display:true, text:'磁导率'}} }
+                    }
+                });
+            }
+        }
+
+        let crossInstance = null;
+        let trlInstance = null;
+        function renderPage4Charts() {
+            if(!crossInstance) {
+                const ctx = document.getElementById('crossoverChart').getContext('2d');
+                crossInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['10k', '20k', '50k', '70k', '100k', '200k', '500k'],
+                        datasets: [
+                            {
+                                label: '纳米晶 (Finemet)',
+                                data: [10, 30, 90, 150, 300, 1000, 4000],
+                                borderColor: '#4f46e5',
+                                backgroundColor: '#4f46e5',
+                                borderWidth: 3
+                            },
+                            {
+                                label: '铁氧体 (N97)',
+                                data: [50, 80, 140, 150, 180, 400, 1200],
+                                borderColor: '#0f172a',
+                                backgroundColor: '#0f172a',
+                                borderDash: [5,5],
+                                borderWidth: 3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { type: 'logarithmic', title: {display: true, text: '损耗 (mW/cm³)'} },
+                            x: { title: {display: true, text: '频率 (Hz)'} }
+                        },
+                        plugins: {
+                            annotation: {
+                                annotations: {
+                                    line1: {
+                                        type: 'line',
+                                        xMin: 3, xMax: 3, 
+                                        borderColor: '#16a34a', borderWidth: 2,
+                                        label: { content: '交叉点 (~70kHz)', enabled: true, position: 'top', backgroundColor: '#16a34a' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            if(!trlInstance) {
+                const ctx2 = document.getElementById('trlChart').getContext('2d');
+                trlInstance = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: ['宽幅纳米晶 (120mm)', '超薄纳米晶 (14μm)', '多场耦合仿真', 'MVA级样机'],
+                        datasets: [{
+                            label: '技术成熟度 (TRL 1-9)',
+                            data: [6, 5, 4, 7],
+                            backgroundColor: ['#f59e0b', '#ef4444', '#3b82f6', '#10b981']
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { x: { max: 9, title: {display:true, text:'TRL等级 (9=完全商用)'} } }
+                    }
+                });
+            }
+        }
+
+        // Init
+        renderPage1Charts();
+
+    </script>
 </body>
 </html>
